@@ -823,28 +823,31 @@ class BayesianAnalysis(object):
             return log_like, [0]*self._polychord_n_derived_params
 
         # Now construct the prior
-        # MULTINEST priors are defined on the unit cube
+        # PolyChord priors are defined on the unit cube
         # and should return the value in the bounds... not the
         # probability. Therefore, we must make some transforms
 
-        def prior(params, ndim, nparams):
+        def prior(params):
 
+            out = np.ones_like(params)
+            
             for i, (parameter_name, parameter) in enumerate(self._free_parameters.iteritems()):
 
                 try:
 
-                    params[i] = parameter.prior.from_unit_cube(params[i])
+                    out[i] = parameter.prior.from_unit_cube(params[i])
 
                 except AttributeError:
 
                     raise RuntimeError("The prior you are trying to use for parameter %s is "
-                                       "not compatible with multinest" % parameter_name)
+                                       "not compatible with polychord" % parameter_name)
 
-        # Give a test run to the prior to check that it is working. If it crashes while multinest is going
-        # it will not stop multinest from running and generate thousands of exceptions (argh!)
+            return out
+        # Give a test run to the prior to check that it is working. If it crashes while polychord is going
+        # it will not stop polychord from running and generate thousands of exceptions (argh!)
         n_dim = len(self._free_parameters)
 
-        _ = prior([0.5] * n_dim, n_dim, [])
+        _ = prior([0.5] * n_dim)
 
         return loglike, prior
 
