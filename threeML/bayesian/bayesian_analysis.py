@@ -804,7 +804,7 @@ class BayesianAnalysis(object):
         # First update the free parameters (in case the user changed them after the construction of the class)
         self._update_free_parameters()
 
-        def loglike(trial_values, ndim, params):
+        def loglike(trial_values):
 
             # NOTE: the _log_like function DOES NOT assign trial_values to the parameters
 
@@ -819,8 +819,8 @@ class BayesianAnalysis(object):
                 print(
                 "Trial values %s gave a log_like of %s" % (map(lambda i: "%.2g" % trial_values[i], range(n_par)),
                                                            log_like))
-
-            return log_like
+            # we ignore the derived params in 3ML    
+            return log_like, [0]*self._polychord_n_derived_params
 
         # Now construct the prior
         # MULTINEST priors are defined on the unit cube
