@@ -13,6 +13,20 @@ else:
 
     has_pymultinest = True
 
+
+try:
+
+    import pypolychord
+
+except:
+
+    has_pypolychord = False
+
+else:
+
+    has_pypolychord = True
+
+    
 try:
 
     import chainconsumer
@@ -480,6 +494,45 @@ class BayesianAnalysis(object):
 
             return self.samples
 
+    def sample_polychord(self, polychord_settings=None):
+        """FIXME! briefly describe function
+
+        :param polychord_settings: 
+        :returns: 
+        :rtype: 
+
+        """
+
+
+        assert has_pypolychord, "You don't have pypolychord installed, so you cannot run the PolyChord sampler"
+
+        self._update_free_parameters()
+
+        n_dim = len(self._free_parameters.keys())
+
+        # MULTINEST has a convergence criteria and therefore, there is no way
+        # to determine progress
+
+        sampling_procedure = sample_without_progress
+
+        loglike, polychord_prior = self._construct_polychord_posterior()
+
+        
+        if polychord_settings is None:
+
+            settings = pypolychord.PolyChordSettings(nDims, nDerived) #settings is an object
+            settings.file_root = "chains/fit-"
+            settings.do_clustering = True 
+            settings.read_resume = False
+        
+
+
+
+        return self.samples
+        
+
+
+        
     def _build_samples_dictionary(self):
         """
         Build the dictionary to access easily the samples by parameter
@@ -688,6 +741,61 @@ class BayesianAnalysis(object):
     def _construct_multinest_posterior(self):
         """
         pymultinest becomes confused with the self pointer. We therefore ceate callbacks
+        that pymultinest can understand.
+
+        Here, we construct the prior and log. likelihood for multinest on the unit cube
+        """
+
+        # First update the free parameters (in case the user changed them after the construction of the class)
+        self._update_free_parameters()
+
+        def loglike(trial_values, ndim, params):
+
+            # NOTE: the _log_like function DOES NOT assign trial_values to the parameters
+
+            for i, parameter in enumerate(self._free_parameters.values()):
+                parameter.value = trial_values[i]
+
+            log_like = self._log_like(trial_values)
+
+            if self.verbose:
+                n_par = len(self._free_parameters)
+
+                print(
+                "Trial values %s gave a log_like of %s" % (map(lambda i: "%.2g" % trial_values[i], range(n_par)),
+                                                           log_like))
+
+            return log_like
+
+        # Now construct the prior
+        # MULTINEST priors are defined on the unit cube
+        # and should return the value in the bounds... not the
+        # probability. Therefore, we must make some transforms
+
+        def prior(params, ndim, nparams):
+
+            for i, (parameter_name, parameter) in enumerate(self._free_parameters.iteritems()):
+
+                try:
+
+                    params[i] = parameter.prior.from_unit_cube(params[i])
+
+                except AttributeError:
+
+                    raise RuntimeError("The prior you are trying to use for parameter %s is "
+                                       "not compatible with multinest" % parameter_name)
+
+        # Give a test run to the prior to check that it is working. If it crashes while multinest is going
+        # it will not stop multinest from running and generate thousands of exceptions (argh!)
+        n_dim = len(self._free_parameters)
+
+        _ = prior([0.5] * n_dim, n_dim, [])
+
+        return loglike, prior
+
+    def _construct_polychord_posterior(self):
+        """
+        pypolychord becomes confused with the self pointer. We therefore ceate callbacks
         that pymultinest can understand.
 
         Here, we construct the prior and log. likelihood for multinest on the unit cube
