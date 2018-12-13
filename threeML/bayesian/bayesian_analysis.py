@@ -515,18 +515,27 @@ class BayesianAnalysis(object):
 
         sampling_procedure = sample_without_progress
 
-        loglike, polychord_prior = self._construct_polychord_posterior()
+        self._polychord_n_derived_params = 0
 
-        
         if polychord_settings is None:
 
-            settings = pypolychord.PolyChordSettings(nDims, nDerived) #settings is an object
-            settings.file_root = "chains/fit-"
-            settings.do_clustering = True 
-            settings.read_resume = False
+            polychord_settings = pypolychord.PolyChordSettings(n_dims, self._polychord_n_derived_params) #settings is an object
+            polychord_settings.file_root = "chains/fit-"
+            polychord_settings.do_clustering = True 
+            polychord_settings.read_resume = False
+
+        else:
+
+            # we want to make sure the number of dimensions is correct so that
+            # we do not run into any crazy issues from incorrect settings files
+
+            # not sure how to actually deal with this just yet
+            pass
+
         
+            
 
-
+        loglike, polychord_prior = self._construct_polychord_posterior()
 
         return self.samples
         
