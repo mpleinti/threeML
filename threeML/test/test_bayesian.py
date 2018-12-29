@@ -67,6 +67,18 @@ def test_multinest(completed_bn090217206_bayesian_analysis):
 
     check_results(res)
 
+
+def test_polychord(completed_bn090217206_bayesian_analysis):
+
+    bayes, _ = completed_bn090217206_bayesian_analysis
+
+    bayes.sample_polychord()
+
+    res = bayes.results.get_data_frame()
+
+    check_results(res)
+
+    
 # def test_parallel_temp():
 #
 #     powerlaw.index.prior = Uniform_prior(lower_bound=-5.0, upper_bound=5.0)
