@@ -18,6 +18,7 @@ try:
 
     import pypolychord
 
+    from pypolychord.settings import PolyChordSettings
 except:
 
     has_pypolychord = False
@@ -494,7 +495,7 @@ class BayesianAnalysis(object):
 
             return self.samples
 
-    def sample_polychord(self, polychord_settings=None):
+    def sample_polychord(self, polychord_settings=None, quiet=False):
         """FIXME! briefly describe function
 
         :param polychord_settings: 
@@ -519,8 +520,8 @@ class BayesianAnalysis(object):
 
         if polychord_settings is None:
 
-            polychord_settings = pypolychord.PolyChordSettings(n_dims, self._polychord_n_derived_params) #settings is an object
-            polychord_settings.file_root = "chains/fit-"
+            polychord_settings = PolyChordSettings(n_dim, self._polychord_n_derived_params) #settings is an object
+            polychord_settings.file_root = "fit-"
             polychord_settings.do_clustering = True 
             polychord_settings.read_resume = False
 
@@ -530,15 +531,99 @@ class BayesianAnalysis(object):
             # we do not run into any crazy issues from incorrect settings files
 
             # not sure how to actually deal with this just yet
+
             pass
+
+        if quiet:
+
+            polychord_settings.feedback=0
 
         
             
 
         loglike, polychord_prior = self._construct_polychord_posterior()
 
-        return self.samples
-        
+        if not quiet:
+            def dumper(live, dead, logweights, logZ, logZerr):
+                print("Last dead point:", dead[-1])
+
+        else:
+            def dumper(live, dead, logweights, logZ, logZerr):
+                pass
+                
+
+        output = pypolychord.run_polychord(loglike, n_dim, self._polychord_n_derived_params, polychord_settings, polychord_prior, dumper)
+        #paramnames = [('p%i' % i, r'\theta_%i' % i) for i in range(nDims)]
+        #paramnames += [('r*', 'r')]
+        #output.make_paramnames_files(paramnames)
+
+        # Use PyMULTINEST analyzer to gather parameter info
+
+        process_fit = False
+
+        if using_mpi:
+
+            # if we are running in parallel and this is not the
+            # first engine, then we want to wait and let everything finish
+
+            if rank !=0:
+
+                # let these guys take a break
+                time.sleep(5)
+
+                # these engines do not need to read
+                process_fit = False
+
+            else:
+
+                # wait for a moment to allow it all to turn off
+                time.sleep(5)
+
+                process_fit = True
+
+        else:
+
+            process_fit = True
+
+
+        if process_fit:
+
+
+            paramnames = [('p%i' % i, r'\theta_%i' % i) for i in range(n_dim)]
+            # paramnames += [('r*', 'r')]
+            output.make_paramnames_files(paramnames)
+
+            
+            posterior = output.posterior
+
+            # Get the log. likelihood values from the chain
+            self._log_like_values = posterior.loglikes
+
+            self._sampler = output
+
+            self._raw_samples = posterior.samples
+
+            # now get the log probability
+
+            self._log_probability_values = self._log_like_values +  np.array([self._log_prior(samples) for samples in self._raw_samples])
+
+            self._build_samples_dictionary()
+
+            self._marginal_likelihood = output.logZ
+
+            self._build_results()
+
+            # Display results
+            if not quiet:
+                self._results.display()
+
+            # now get the marginal likelihood
+
+
+
+            return self.samples
+
+                
 
 
         
@@ -829,7 +914,7 @@ class BayesianAnalysis(object):
                 "Trial values %s gave a log_like of %s" % (map(lambda i: "%.2g" % trial_values[i], range(n_par)),
                                                            log_like))
             # we ignore the derived params in 3ML    
-            return log_like, [0]*self._polychord_n_derived_params
+            return log_like, None
 
         # Now construct the prior
         # PolyChord priors are defined on the unit cube
