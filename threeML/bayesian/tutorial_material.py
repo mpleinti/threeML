@@ -51,7 +51,31 @@ class BayesianAnalysisWrap(BayesianAnalysis):
 
                 self.likelihood_model.test.spectrum.main.shape.stop_tracking()
 
+    def sample_polychord(self, *args, **kwargs):
 
+        self.likelihood_model.test.spectrum.main.shape.reset_tracking()
+        self.likelihood_model.test.spectrum.main.shape.start_tracking()
+
+
+
+        with use_astromodels_memoization(False):
+
+            try:
+
+                super(BayesianAnalysisWrap, self).sample_polychord(*args, **kwargs)
+
+            except:
+
+                raise
+
+            finally:
+
+                self.likelihood_model.test.spectrum.main.shape.stop_tracking()
+
+
+    
+
+                
 def get_bayesian_analysis_object_simple_likelihood():
     minus_log_L = Simple()
 
