@@ -597,7 +597,7 @@ class BayesianAnalysis(object):
             posterior = output.posterior
 
             # Get the log. likelihood values from the chain
-            self._log_like_values = posterior.loglikes
+            self._log_like_values = -0.5*posterior.loglikes
 
             self._sampler = output
 
